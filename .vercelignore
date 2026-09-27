@@ -1,0 +1,13 @@
+.git
+.env*
+node_modules
+.next
+tests
+playwright-report
+test-results
+docs/screenshots
+*.pdf
+*.odt
+*.pen
+src/lib/*.odt
+scripts/e2e-server.js
