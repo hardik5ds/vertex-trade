@@ -21,8 +21,10 @@ Screenshots of landing, dashboard, wallet, portfolio and admin are produced unde
 - Yahoo Finance: real AAPL response received with 391 candles and provider timestamp `2026-09-25T20:00:01.000Z`.
 - MongoDB: current Atlas SRV hostname does not resolve (`ENOTFOUND`). No production migration or seed has run.
 - Brevo: current SMTP credentials rejected (`EAUTH`). No production verification email has been sent.
-- Vercel: existing Hobby account authenticated; Vertex Trade project created with Next.js and Node 24.
-- GitHub: private repository created at https://github.com/hardik5ds/vertex-trade.
+- Vercel: Next.js build and deployment succeeded on the existing Hobby account with Node 24. Preview: https://vertex-trade-ten.vercel.app.
+- Live smoke checks: `/`, `/login`, `/signup` and `/terms` returned HTTP 200; `/api/health` returned HTTP 503 because the database is unavailable. Desktop landing and mobile login had no page errors or horizontal overflow. Production signup is blocked, as reproduced by the user.
+- GitHub: private repository at https://github.com/hardik5ds/vertex-trade. [Initial CI run](https://github.com/hardik5ds/vertex-trade/actions/runs/36297228296) passed. Vercel Git integration is connected.
+- Dependency audit: `npm audit --omit=dev --audit-level=high` reported zero vulnerabilities.
 
 ## Remaining release gates
 

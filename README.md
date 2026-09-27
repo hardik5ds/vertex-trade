@@ -2,7 +2,9 @@
 
 A stock-price prediction simulation with a minimal black interface. Explore Indian and US equities, place time-bound predictions, and track outcomes using virtual credits. **All payments and wallets are simulations. No real money moves and no securities are traded.**
 
-Deployment: pending production database/email configuration. No working public URL is claimed yet.
+Deployment preview: **https://vertex-trade-ten.vercel.app**. Public pages are live, but **signup, login and account features are unavailable** until the MongoDB connection and Brevo SMTP credentials are repaired. This is not yet a verified production launch.
+
+Private repository: https://github.com/hardik5ds/vertex-trade. The initial GitHub Actions verification run passed; Vercel Git integration is connected for deployment on push.
 
 ## What works
 
