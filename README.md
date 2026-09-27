@@ -4,8 +4,6 @@ A stock-price prediction simulation with a minimal black interface. Explore Indi
 
 Live website: **https://vertex-trade-ten.vercel.app**. Email-verified signup, login, market data, predictions, settlement, demo payments, portfolio and admin controls have been checked on the deployed application. See [the verification record](docs/VERIFICATION.md) for the test conditions and limits.
 
-Private repository: https://github.com/hardik5ds/vertex-trade. GitHub Actions runs automated unit, integration and browser tests plus lint, dependency checks and the production build. Vercel Git integration deploys changes pushed to `main`.
-
 ## What works
 
 - Email OTP signup, login, logout and password recovery. Session cookies are HttpOnly; logout, reset and suspension revoke access.
