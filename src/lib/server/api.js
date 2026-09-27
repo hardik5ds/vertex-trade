@@ -65,7 +65,10 @@ export async function rateLimit(key, limit = 60, windowMs = 60000) {
     if (error.code !== 11000) throw error
     doc = await RateLimit.findOneAndUpdate({ _id: id }, { $inc: { count: 1 } }, { new: true })
   }
-  invariant(doc.count <= limit, 'Too many requests. Please try again shortly', 429)
+  if (doc.count > limit)
+    throw new AppError('Too many requests. Please wait before trying again.', 429, {
+      retryAfter: Math.max(1, Math.ceil(((bucket + 1) * windowMs - Date.now()) / 1000)),
+    })
 }
 export function api(handler, options = {}) {
   return async (request, context = {}) => {
@@ -104,6 +107,7 @@ export function api(handler, options = {}) {
       return json(
         {
           success: false,
+          ...(error instanceof AppError && error.code ? { code: error.code } : {}),
           message:
             error instanceof AppError
               ? error.message
@@ -114,7 +118,7 @@ export function api(handler, options = {}) {
                   : 'Service temporarily unavailable. Please try again',
         },
         status,
-        status === 429 ? { 'Retry-After': '60' } : {},
+        status === 429 ? { 'Retry-After': String(error.retryAfter || 60) } : {},
       )
     }
   }

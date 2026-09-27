@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useDispatch } from 'react-redux'
@@ -19,9 +19,28 @@ export default function AuthScreen({ mode }) {
     [registrationToken, setRegistrationToken] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [notice, setNotice] = useState('')
+    [notice, setNotice] = useState(''),
+    [existingAccount, setExistingAccount] = useState(false),
+    [retryAt, setRetryAt] = useState(0),
+    [retryIn, setRetryIn] = useState(0)
   const signup = mode === 'signup',
     reset = mode === 'reset'
+  useEffect(() => {
+    if (!retryAt) return
+    const update = () => setRetryIn(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)))
+    update()
+    const timer = setInterval(update, 1000)
+    return () => clearInterval(timer)
+  }, [retryAt])
+  function waitToResend(seconds) {
+    setRetryIn(seconds)
+    setRetryAt(Date.now() + seconds * 1000)
+  }
+  function showError(err) {
+    setError(err.message)
+    if (err.code === 'ACCOUNT_EXISTS') setExistingAccount(true)
+    if (err.retryAfter > 0) waitToResend(err.retryAfter)
+  }
   const title =
     !signup && !reset
       ? 'Welcome back.'
@@ -40,17 +59,22 @@ export default function AuthScreen({ mode }) {
       : step === 0
         ? signup
           ? 'Start practicing with ₹1,00,000 in virtual credits.'
-          : 'We’ll email a code to verify it’s you.'
+          : 'Enter your account email to request a password reset code.'
         : step === 1 && signup
-          ? `Enter the six-digit code sent to ${email}.`
+          ? `Check ${email} for your six-digit verification code.`
           : signup
             ? 'Your email is verified. Finish setting up your account.'
-            : `Enter the code sent to ${email}, then choose your password.`
+            : step === 2
+              ? 'Your account is ready. Sign in with your new password.'
+              : `If ${email} has an account, check its inbox for a reset code.`
   async function sendCode() {
-    await request('/api/auth/send-otp', {
+    const data = await request('/api/auth/send-otp', {
       method: 'POST',
       body: { email, purpose: reset ? 'PASSWORD_RESET' : 'SIGNUP' },
     })
+    setNotice(data.message)
+    setOtp('')
+    waitToResend(data.retryAfter || 60)
   }
   async function submit(e) {
     e.preventDefault()
@@ -85,7 +109,7 @@ export default function AuthScreen({ mode }) {
         setStep(2)
       }
     } catch (err) {
-      setError(err.message)
+      showError(err)
     } finally {
       setBusy(false)
     }
@@ -93,11 +117,11 @@ export default function AuthScreen({ mode }) {
   async function resend() {
     setBusy(true)
     setError('')
+    setNotice('')
     try {
       await sendCode()
-      setNotice('A new code has been requested. Check your inbox.')
     } catch (e) {
-      setError(e.message)
+      showError(e)
     } finally {
       setBusy(false)
     }
@@ -143,6 +167,17 @@ export default function AuthScreen({ mode }) {
           <p>{subtitle}</p>
           <Message>{error}</Message>
           <Message success>{notice}</Message>
+          {existingAccount && (
+            <div className="auth-links" style={{ marginBottom: 24 }}>
+              <Link className="link" href="/login">
+                Sign in to your account
+              </Link>
+              <span> · </span>
+              <Link className="link" href="/forgot-password">
+                Reset password
+              </Link>
+            </div>
+          )}
           {reset && step === 2 ? (
             <Link className="button" href="/login">
               Return to sign in <Icon name="arrow" size={16} />
@@ -160,7 +195,11 @@ export default function AuthScreen({ mode }) {
                     required
                     maxLength={254}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      setExistingAccount(false)
+                      setError('')
+                    }}
                   />
                 </div>
               )}
@@ -180,7 +219,7 @@ export default function AuthScreen({ mode }) {
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   />
                   <small className="field-help">
-                    Expires in 10 minutes. Three attempts per code.
+                    Use the latest code. Expires in 10 minutes. Check Spam if it hasn’t arrived.
                   </small>
                 </div>
               )}
@@ -226,11 +265,16 @@ export default function AuthScreen({ mode }) {
                   )}
                 </div>
               )}
-              <Button type="submit" disabled={busy}>
+              <Button
+                type="submit"
+                disabled={busy || ((signup || reset) && step === 0 && retryIn > 0)}
+              >
                 {busy ? (
                   <>
                     <span className="spinner" /> Please wait…
                   </>
+                ) : (signup || reset) && step === 0 && retryIn > 0 ? (
+                  `Try again in ${retryIn}s`
                 ) : !signup && !reset ? (
                   'Sign in'
                 ) : step === 0 ? (
@@ -246,16 +290,23 @@ export default function AuthScreen({ mode }) {
               </Button>
               {step === 1 && (
                 <div className="auth-links">
-                  <button className="table-action" type="button" disabled={busy} onClick={resend}>
-                    Resend code
+                  <button
+                    className="table-action"
+                    type="button"
+                    disabled={busy || retryIn > 0}
+                    onClick={resend}
+                  >
+                    {retryIn > 0 ? `Resend in ${retryIn}s` : 'Resend code'}
                   </button>
                   <span> · </span>
                   <button
                     className="table-action"
                     type="button"
+                    disabled={busy}
                     onClick={() => {
                       setStep(0)
                       setError('')
+                      setNotice('')
                       setOtp('')
                     }}
                   >
@@ -274,9 +325,15 @@ export default function AuthScreen({ mode }) {
                 </Link>
               </>
             ) : reset ? (
-              <Link className="link" href="/login">
-                Back to sign in
-              </Link>
+              <>
+                <Link className="link" href="/login">
+                  Back to sign in
+                </Link>
+                <span> · </span>
+                <Link className="link" href="/signup">
+                  Create an account
+                </Link>
+              </>
             ) : (
               <>
                 New here?{' '}

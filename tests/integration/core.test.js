@@ -217,6 +217,65 @@ test('password reset revokes existing sessions and cannot use signup codes', asy
   await assert.rejects(login({ email: user.email, password: 'password-for-testing' }), /Invalid/)
   assert.ok((await login({ email: user.email, password: 'a-new-password-for-tests' })).token)
 })
+test('existing signup never claims delivery or consumes the password recovery allowance', async () => {
+  let delivered = 0
+  const deliver = async () => {
+    delivered++
+  }
+  for (let attempt = 0; attempt < 6; attempt++)
+    await assert.rejects(
+      requestCode({ email: ` ${user.email.toUpperCase()} `, purpose: 'SIGNUP' }, deliver),
+      (error) => error.status === 409 && error.code === 'ACCOUNT_EXISTS',
+    )
+  assert.equal(delivered, 0)
+  assert.equal(await OTP.countDocuments(), 0)
+  await requestCode({ email: user.email, purpose: 'PASSWORD_RESET' }, deliver)
+  assert.equal(delivered, 1)
+})
+test('failed delivery removes the unusable code and allows a fresh request', async () => {
+  const email = 'delivery@example.test'
+  await assert.rejects(
+    requestCode({ email }, async () => {
+      throw new Error('SMTP failure')
+    }),
+    (error) => error.status === 503 && /could not be delivered/.test(error.message),
+  )
+  assert.equal(await OTP.countDocuments({ email }), 0)
+  let code
+  const response = await requestCode({ email }, async (_email, value) => {
+    code = value
+  })
+  assert.equal(response.retryAfter, 60)
+  assert.ok((await verifySignup({ email, otp: code })).registrationToken)
+})
+test('reset preserves account privacy and enforces resend cooldown without replacing the code', async () => {
+  let delivered = 0
+  const deliver = async () => {
+    delivered++
+  }
+  const known = await requestCode({ email: user.email, purpose: 'PASSWORD_RESET' }, deliver)
+  const unknown = await requestCode(
+    { email: 'unknown@example.test', purpose: 'PASSWORD_RESET' },
+    deliver,
+  )
+  assert.deepEqual(known, unknown)
+  assert.equal(delivered, 1)
+  const before = await OTP.findOne({ email: user.email }).lean()
+  await assert.rejects(
+    requestCode({ email: user.email, purpose: 'PASSWORD_RESET' }, deliver),
+    (error) => error.status === 429,
+  )
+  assert.equal(delivered, 1)
+  assert.equal((await OTP.findOne({ email: user.email })).challengeId, before.challengeId)
+  await OTP.updateOne(
+    { email: user.email },
+    { $set: { updatedAt: new Date(Date.now() - 61000) } },
+    { timestamps: false },
+  )
+  await requestCode({ email: user.email, purpose: 'PASSWORD_RESET' }, deliver)
+  assert.equal(delivered, 2)
+  assert.notEqual((await OTP.findOne({ email: user.email })).challengeId, before.challengeId)
+})
 test('suspended accounts and paused bidding reject new financial actions', async () => {
   await User.updateOne({ _id: user._id }, { $set: { status: 'SUSPENDED' } })
   await assert.rejects(place(), /unavailable/)

@@ -11,10 +11,10 @@ Private repository: https://github.com/hardik5ds/vertex-trade
 | Check                       | Result                       | Coverage                                                                                                                                                                                                     |
 | --------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ESLint                      | Passed                       | Application, API, scripts and tests                                                                                                                                                                          |
-| Unit tests                  | 8 passed                     | V2 formula, precision, bounds, input validation                                                                                                                                                              |
-| Replica-set integration     | 16 passed                    | OTP, sessions, concurrent placement/cancellation/settlement, replay protection, rollback, demo payments, refill limits, rate limiting, CSRF, portfolio, legacy wallet/index migration and bonus preservation |
+| Unit tests                  | 11 passed                    | V2 formula, precision, bounds, input validation, SMTP recipient acceptance and redacted delivery diagnostics                                                                                                 |
+| Replica-set integration     | 19 passed                    | OTP, existing-account recovery, failed delivery retry, resend cooldown, sessions, concurrent placement/cancellation/settlement, replay protection, rollback, payments, rate limiting, CSRF and migration     |
 | Production build            | Passed locally and on Vercel | Next.js 15.5.26, all 44 routes/pages compiled or generated                                                                                                                                                   |
-| Browser journeys            | 8 passed                     | Desktop/mobile signup, login, market, placement, cancellation, settlement, notifications, payments, portfolio, admin controls, logout and network recovery                                                   |
+| Browser journeys            | 12 passed                    | Desktop/mobile signup, existing-account recovery through email and new-password login, OTP failure retry, market, predictions, payments, portfolio, admin controls, logout and network recovery             |
 | Production dependency audit | 0 vulnerabilities reported   | `npm audit --omit=dev --audit-level=high`                                                                                                                                                                    |
 
 [CI run for the legacy migration fix](https://github.com/hardik5ds/vertex-trade/actions/runs/36298506852) passed. The workflow runs on every push to `main`; Vercel Git integration is connected and its automatic production deployment was observed.
@@ -60,6 +60,14 @@ The configured administrator, `singhalhardik044@gmail.com`, was separately email
 The administrator's generated password is saved privately on the owner's Mac and is not included in Git, screenshots or this report. An account named **Vertex QA** remains for its clearly identifiable test history; its funds have no monetary value.
 
 Screenshots are generated under `docs/screenshots/` and ignored by Git. Live candlestick and mobile wallet screenshots were visually reviewed.
+
+## OTP follow-up repair
+
+The prior signup handler silently returned a generic success response when the email already belonged to an account. The UI then displayed a verification form even though no email had been requested. Both previously reported owner addresses were already registered; recent production signup requests returned HTTP 200 without delivery errors.
+
+Registered-address signup now returns HTTP 409 with a stable `ACCOUNT_EXISTS` code and visible sign-in/password-reset links. It does not consume the per-email recovery allowance. Password reset retains conditional, identical responses for known and unknown accounts. The UI respects a 60-second resend delay and server rate-limit headers, and failed SMTP requests stay on email entry. Email input is normalized before validation.
+
+New tests cover SMTP acceptance/rejection, safe diagnostic logging, failed-delivery cleanup, recovery allowance preservation, account privacy, cooldown behavior and complete desktop/mobile password recovery using the disposable SMTP inbox. The recovery and retry journeys pass on desktop and mobile; the CI workflow runs the complete suite on push. No production password was changed by these regression tests.
 
 ## Operational limits
 

@@ -6,6 +6,7 @@ async function signup(page, request) {
   await page.getByLabel('Email address').fill(email)
   await page.getByRole('button', { name: 'Send verification code' }).click()
   await expect(page.getByLabel('Verification code')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Resend in \d+s/ })).toBeDisabled()
   const { code } = await (
     await request.get(`http://127.0.0.1:3101/inbox?email=${encodeURIComponent(email)}`)
   ).json()
@@ -153,4 +154,70 @@ test('network errors show a recovery path', async ({ page, request }) => {
   await page.unroute('**/api/wallet/balance')
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('button', { name: 'Demo deposit', exact: true })).toBeVisible()
+})
+test('existing signup offers recovery and a real reset email restores login', async ({
+  page,
+  request,
+}, info) => {
+  const email = await signup(page, request)
+  await page.request.post('/api/auth/logout', {
+    headers: { Origin: 'http://localhost:3100' },
+    data: {},
+  })
+  await page.goto('/signup')
+  await page.getByLabel('Email address').fill(email)
+  await page.getByRole('button', { name: 'Send verification code' }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'already has an account' })).toBeVisible()
+  await expect(page.getByLabel('Verification code')).not.toBeVisible()
+  await page.screenshot({
+    path: `docs/screenshots/signup-recovery-${info.project.name}.png`,
+    fullPage: true,
+  })
+  await page.getByRole('link', { name: 'Reset password', exact: true }).click()
+  await expect(page).toHaveURL('/forgot-password')
+  await expect(page.getByRole('heading', { name: 'A fresh start.' })).toBeVisible()
+  await page.getByLabel('Email address').fill(email)
+  await page.getByRole('button', { name: 'Send verification code' }).click()
+  await expect(page.getByLabel('Verification code')).toBeVisible()
+  await expect(page.getByRole('status')).toContainText('If this email has an account')
+  await expect(page.getByRole('button', { name: /Resend in \d+s/ })).toBeDisabled()
+  const { code } = await (
+    await request.get(`http://127.0.0.1:3101/inbox?email=${encodeURIComponent(email)}`)
+  ).json()
+  expect(code).toMatch(/^\d{6}$/)
+  await page.getByLabel('Verification code').fill(code)
+  await page.getByLabel('New password').fill('updated-test-password')
+  await page.getByRole('button', { name: 'Update password' }).click()
+  await expect(page.getByRole('status')).toContainText('Password updated')
+  await page.getByRole('link', { name: 'Return to sign in' }).click()
+  await expect(page).toHaveURL('/login')
+  await page.getByLabel('Email address').fill(email)
+  await page.getByLabel('Password', { exact: true }).fill('updated-test-password')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page).toHaveURL('/dashboard')
+})
+test('failed OTP request stays on email entry and supports retry', async ({ page }) => {
+  await page.goto('/signup')
+  await page.route('**/api/auth/send-otp', (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: false,
+        message: 'Email could not be delivered. Please try again shortly',
+      }),
+    }),
+  )
+  await page.getByLabel('Email address').fill(`retry-${Date.now()}@example.test`)
+  await page.getByRole('button', { name: 'Send verification code' }).click()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Email could not be delivered' }),
+  ).toBeVisible()
+  await expect(page.getByLabel('Verification code')).not.toBeVisible()
+  await page.unroute('**/api/auth/send-otp')
+  await page.getByRole('button', { name: 'Send verification code' }).click()
+  await expect(page.getByLabel('Verification code')).toBeVisible()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Email could not be delivered' }),
+  ).not.toBeVisible()
 })

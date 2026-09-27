@@ -4,7 +4,7 @@ A stock-price prediction simulation with a minimal black interface. Explore Indi
 
 Live website: **https://vertex-trade-ten.vercel.app**. Email-verified signup, login, market data, predictions, settlement, demo payments, portfolio and admin controls have been checked on the deployed application. See [the verification record](docs/VERIFICATION.md) for the test conditions and limits.
 
-Private repository: https://github.com/hardik5ds/vertex-trade. GitHub Actions runs 32 automated tests plus lint, dependency checks and the production build. Vercel Git integration deploys changes pushed to `main`.
+Private repository: https://github.com/hardik5ds/vertex-trade. GitHub Actions runs automated unit, integration and browser tests plus lint, dependency checks and the production build. Vercel Git integration deploys changes pushed to `main`.
 
 ## What works
 
@@ -74,6 +74,13 @@ npm run services:check
 ```
 
 This checks database/replica-set support, a real Yahoo quote and SMTP authentication without sending an email. SMTP authentication alone does not verify deliverability or sender verification; complete a real OTP signup after deployment.
+
+### Email verification and recovery
+
+- Signup is for new addresses. A registered address receives an explicit account-exists message with sign-in and password-reset links; the app does not pretend a signup code was sent.
+- Use `/forgot-password` for an existing account, including a legacy unverified account. Recovery uses a separate OTP purpose and revokes old sessions after a successful password change. Unknown addresses receive the same conditional recovery response to protect account privacy.
+- Check the inbox and Spam folder. Codes expire after 10 minutes, allow three verification attempts, and can be resent after 60 seconds. The UI displays the resend countdown and honors server rate-limit retry times. Only the latest code is valid.
+- SMTP rejection does not advance to verification. Failed challenges are removed so the user can retry. Server logs record `smtp_accepted` or a safe `smtp_failed` code without email addresses, OTPs or credentials. SMTP acceptance confirms handoff to Brevo, not final inbox delivery; investigate Brevo's transactional logs if an accepted message does not arrive.
 
 ## Existing data migration
 

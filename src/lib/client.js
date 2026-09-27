@@ -19,6 +19,8 @@ export async function request(url, { method = 'GET', body, key, signal } = {}) {
   if (!response.ok || data.success === false) {
     const error = new Error(data.message || 'Could not complete the request. Please try again')
     error.status = response.status
+    error.code = data.code
+    error.retryAfter = Number(response.headers.get('Retry-After')) || 0
     if (response.status === 401 && typeof window !== 'undefined')
       window.dispatchEvent(new Event('vertex:session-expired'))
     throw error

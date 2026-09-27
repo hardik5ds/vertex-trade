@@ -23,8 +23,9 @@ const digest = (email, purpose, challenge, code) =>
     .update(`${email}:${purpose}:${challenge}:${code}`)
     .digest('hex')
 export function emailInput(value) {
-  invariant(validEmail(value), 'Enter a valid email address')
-  return value.trim().toLowerCase()
+  const email = typeof value === 'string' ? value.trim().toLowerCase() : value
+  invariant(validEmail(email), 'Enter a valid email address')
+  return email
 }
 export function passwordInput(value) {
   invariant(
@@ -37,10 +38,22 @@ export async function requestCode(body, deliver = sendCode) {
   const email = emailInput(body.email),
     purpose = body.purpose || 'SIGNUP'
   invariant(['SIGNUP', 'PASSWORD_RESET'].includes(purpose), 'Invalid verification purpose')
-  await rateLimit(`otp-email:${email}`, 5, 3600000)
   const user = await User.findOne({ email }).lean()
-  if ((purpose === 'SIGNUP' && user) || (purpose === 'PASSWORD_RESET' && !user))
-    return { message: 'If this address is eligible, a verification code has been sent' }
+  if (purpose === 'SIGNUP' && user)
+    throw new AppError('This email already has an account. Sign in or reset your password.', 409, {
+      code: 'ACCOUNT_EXISTS',
+    })
+  await rateLimit(`otp-email:${email}`, 5, 3600000)
+  // Keep password recovery responses identical for unknown and registered addresses.
+  const result = {
+    message:
+      purpose === 'PASSWORD_RESET'
+        ? 'If this email has an account, a reset code has been requested. Check your inbox and spam folder.'
+        : 'Verification email requested. Check your inbox and spam folder.',
+    expiresIn: 600,
+    retryAfter: 60,
+  }
+  if (purpose === 'PASSWORD_RESET' && !user) return result
   const code = String(randomInt(100000, 1000000)),
     challengeId = randomUUID(),
     now = new Date()
@@ -71,10 +84,7 @@ export async function requestCode(body, deliver = sendCode) {
     await OTP.deleteOne({ email, challengeId })
     throw new AppError('Email could not be delivered. Please try again shortly', 503)
   }
-  return {
-    message: 'If this address is eligible, a verification code has been sent',
-    expiresIn: 600,
-  }
+  return result
 }
 export async function consumeCode(email, code, purpose) {
   invariant(typeof code === 'string' && /^\d{6}$/.test(code), 'Enter the six-digit code')

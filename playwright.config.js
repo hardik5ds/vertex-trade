@@ -14,9 +14,21 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1000 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 1000 },
+        // Separate simulated clients keep route limits independent across projects.
+        extraHTTPHeaders: { 'X-Forwarded-For': '192.0.2.1' },
+      },
     },
-    { name: 'mobile', use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium' } },
+    {
+      name: 'mobile',
+      use: {
+        ...devices['iPhone 13'],
+        defaultBrowserType: 'chromium',
+        extraHTTPHeaders: { 'X-Forwarded-For': '192.0.2.2' },
+      },
+    },
   ],
   webServer: {
     command: 'node scripts/e2e-server.js',
