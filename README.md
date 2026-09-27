@@ -2,9 +2,9 @@
 
 A stock-price prediction simulation with a minimal black interface. Explore Indian and US equities, place time-bound predictions, and track outcomes using virtual credits. **All payments and wallets are simulations. No real money moves and no securities are traded.**
 
-Deployment preview: **https://vertex-trade-ten.vercel.app**. Public pages are live, but **signup, login and account features are unavailable** until the MongoDB connection and Brevo SMTP credentials are repaired. This is not yet a verified production launch.
+Live website: **https://vertex-trade-ten.vercel.app**. Email-verified signup, login, market data, predictions, settlement, demo payments, portfolio and admin controls have been checked on the deployed application. See [the verification record](docs/VERIFICATION.md) for the test conditions and limits.
 
-Private repository: https://github.com/hardik5ds/vertex-trade. The initial GitHub Actions verification run passed; Vercel Git integration is connected for deployment on push.
+Private repository: https://github.com/hardik5ds/vertex-trade. GitHub Actions runs 32 automated tests plus lint, dependency checks and the production build. Vercel Git integration deploys changes pushed to `main`.
 
 ## What works
 
@@ -83,6 +83,7 @@ Back up the database before a deployment. Run `npm run migrate` against the inte
 - Active prediction stakes become `reservedPaise`.
 - Invalid balances stop migration for manual reconciliation. It does not invent credits to repair historically inconsistent ledgers.
 - Existing bids retain V2 settlement rules. Legacy sessions and plaintext OTPs are no longer accepted. Legacy unverified users can prove email ownership using password reset.
+- OTP email uniqueness uses a separately named index, allowing legacy non-unique indexes to remain without deleting records. Duplicate legacy email records must be reconciled before a unique index can be built.
 - Original report PDF/ODT files remain historical artifacts; this README describes the running implementation.
 
 Wallet accounting uses integer paise. Bid prices and accuracy remain floating point. `Transaction.amount` and `balanceAfter` are retained in rupees for compatibility, alongside their integer-paise values. Available plus reserved funds equals wallet equity at stake cost, not a mark-to-market valuation.

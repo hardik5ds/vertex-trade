@@ -1,36 +1,70 @@
 # Vertex Trade verification
 
-Date: 27 September 2026.
+Verified on 27 September 2026.
 
-## Local release checks
+Live website: https://vertex-trade-ten.vercel.app
 
-| Check                   | Result    | Coverage                                                                                                                                                                                         |
-| ----------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ESLint                  | Passed    | Application, API, scripts and tests                                                                                                                                                              |
-| Unit tests              | 8 passed  | V2 formula, precision, bounds, input validation                                                                                                                                                  |
-| Replica-set integration | 15 passed | OTP, sessions, concurrent placement/cancellation/settlement, duplicate requests, rollback, demo payments, refill limits, rate limiting, CSRF, portfolio, legacy migration and bonus preservation |
-| Production build        | Passed    | Next.js 15.5.26, all 44 routes/pages generated or compiled                                                                                                                                       |
-| Browser journeys        | 8 passed  | Desktop/mobile signup through local SMTP, login, market, placement, cancellation, settlement, notifications, payments, portfolio, admin suspension/pause, logout and network recovery            |
+Private repository: https://github.com/hardik5ds/vertex-trade
 
-Browser tests use an isolated MongoDB replica set, local SMTP inbox and fixture quote provider. Those results establish application behavior, not external-service readiness. The test harness can print an ECONNREFUSED message during shutdown after Playwright terminates the disposable database; all assertions and the test command exit successfully.
+## Automated checks
 
-Screenshots of landing, dashboard, wallet, portfolio and admin are produced under `docs/screenshots/` and ignored by Git. Desktop dashboard and mobile wallet were visually inspected for spacing, branding, readable content and responsive layout.
+| Check                       | Result                       | Coverage                                                                                                                                                                                                     |
+| --------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ESLint                      | Passed                       | Application, API, scripts and tests                                                                                                                                                                          |
+| Unit tests                  | 8 passed                     | V2 formula, precision, bounds, input validation                                                                                                                                                              |
+| Replica-set integration     | 16 passed                    | OTP, sessions, concurrent placement/cancellation/settlement, replay protection, rollback, demo payments, refill limits, rate limiting, CSRF, portfolio, legacy wallet/index migration and bonus preservation |
+| Production build            | Passed locally and on Vercel | Next.js 15.5.26, all 44 routes/pages compiled or generated                                                                                                                                                   |
+| Browser journeys            | 8 passed                     | Desktop/mobile signup, login, market, placement, cancellation, settlement, notifications, payments, portfolio, admin controls, logout and network recovery                                                   |
+| Production dependency audit | 0 vulnerabilities reported   | `npm audit --omit=dev --audit-level=high`                                                                                                                                                                    |
 
-## External checks
+[CI run for the legacy migration fix](https://github.com/hardik5ds/vertex-trade/actions/runs/36298506852) passed. The workflow runs on every push to `main`; Vercel Git integration is connected and its automatic production deployment was observed.
 
-- Yahoo Finance: real AAPL response received with 391 candles and provider timestamp `2026-09-25T20:00:01.000Z`.
-- MongoDB: current Atlas SRV hostname does not resolve (`ENOTFOUND`). No production migration or seed has run.
-- Brevo: current SMTP credentials rejected (`EAUTH`). No production verification email has been sent.
-- Vercel: Next.js build and deployment succeeded on the existing Hobby account with Node 24. Preview: https://vertex-trade-ten.vercel.app.
-- Live smoke checks: `/`, `/login`, `/signup` and `/terms` returned HTTP 200; `/api/health` returned HTTP 503 because the database is unavailable. Desktop landing and mobile login had no page errors or horizontal overflow. Production signup is blocked, as reproduced by the user.
-- GitHub: private repository at https://github.com/hardik5ds/vertex-trade. [Initial CI run](https://github.com/hardik5ds/vertex-trade/actions/runs/36297228296) passed. Vercel Git integration is connected.
-- Dependency audit: `npm audit --omit=dev --audit-level=high` reported zero vulnerabilities.
+Automated browser tests use an isolated MongoDB replica set, local SMTP inbox and fixture quote provider. The harness can print an ECONNREFUSED message during shutdown after Playwright terminates the disposable database; all assertions and the test command exit successfully. Live checks below use the actual deployed services instead.
 
-## Remaining release gates
+## Repaired external services
 
-1. Supply a working Atlas M0 URI and valid Brevo SMTP login/key plus verified sender in `.env.local`; never paste secrets into chat or commit them.
-2. Recheck connectivity, back up any existing data, run migration and seed, and update encrypted Vercel environment values.
-3. Complete real email signup on the deployed origin, including verification of the configured admin email.
-4. Verify a real-provider prediction, scheduled expiry, transaction history, admin controls and production worker/cron behavior.
+- The original Atlas M0 cluster was paused. It was resumed without a paid upgrade. Before migration, a backup of the fully restored database was saved under the owner's private `.vertex-trade/backups/` directory.
+- A dedicated database user now has read/write access only to the application database on the intended cluster. Database credentials are stored in ignored local configuration and encrypted Vercel settings.
+- Migration completed successfully. All 11 existing users retained their two wallets. A legacy non-unique OTP email index was preserved while a new unique index was added. The market catalog was initialized and a bounded batch of 40 symbols refreshed.
+- Working Brevo SMTP settings were recovered from the owner's local configuration and verified. Real verification messages were delivered, and the owner supplied the codes for the QA and administrator accounts.
+- Yahoo Finance returned real AAPL data with 391 candles and provider timestamp `2026-09-25T20:00:01.000Z`. Closed-market timestamps are displayed explicitly.
+- Both the deployed `/api/health` and local `http://localhost:3000/api/health` returned HTTP 200 with application status `ok`.
 
-Production readiness is not claimed until those gates pass. Payments are intentionally simulated. The existing V2 rules are retained; the academic report's different formula remains an explicit product decision.
+## Live application checks
+
+The following passed on the public HTTPS deployment using an isolated QA account and simulated funds:
+
+1. Real email OTP verification and account creation; HttpOnly and Secure session-cookie flags verified.
+2. Login through the actual browser form, followed by dashboard access.
+3. ₹1,00,000 opening practice balance and a separate demo cash wallet.
+4. Real Yahoo quote and candlestick chart rendering.
+5. Rejection of negative stakes and foreign request origins.
+6. Prediction placement, repeated-request deduplication, and full cancellation refund.
+7. Demo deposit deduplication, withdrawal, transaction history and receipt data.
+8. Settlement through the authenticated production endpoint, followed by a wallet credit, history entry, portfolio result and persistent notification.
+9. Mobile wallet layout without document overflow and desktop chart/portfolio rendering without page errors.
+10. Anonymous requests denied for wallets/admin; ordinary users denied admin access.
+11. Logout revocation: the former session could no longer access authenticated endpoints.
+12. The cron endpoint rejected a request without its secret (HTTP 401); an authorized run returned HTTP 200 and processed one due prediction with zero failures.
+
+**Settlement test condition:** only the newly created QA bid's placement/expiry timestamps were backdated to exercise the expiry path without waiting an hour. The deployed processor fetched an actual Yahoo quote and settled it: one settled, zero refunded, zero failed. No other user's bid was modified for this test. This verifies processing behavior, not a measured guarantee of scheduled execution latency.
+
+The configured administrator, `singhalhardik044@gmail.com`, was separately email-verified and activated. Live checks confirmed:
+
+- Browser login and admin workspace access.
+- Pausing predictions blocked a QA placement, and resuming restored availability.
+- Suspending only the QA account revoked its sessions; reactivation allowed a fresh login.
+- Each administrative change appeared in the audit log.
+- Temporary test sessions were revoked after verification. Predictions were left enabled.
+
+The administrator's generated password is saved privately on the owner's Mac and is not included in Git, screenshots or this report. An account named **Vertex QA** remains for its clearly identifiable test history; its funds have no monetary value.
+
+Screenshots are generated under `docs/screenshots/` and ignored by Git. Live candlestick and mobile wallet screenshots were visually reviewed.
+
+## Operational limits
+
+- All funds, deposits and withdrawals are simulations. No paid service or payment gateway was enabled.
+- An open authenticated dashboard checks that user's expired predictions every 30 seconds. The Vercel Hobby configuration supplies a daily global cron fallback. A continuously running worker or separately configured free scheduler is needed for frequent unattended settlement; a daily fallback does not guarantee 30-second offline processing.
+- Quotes come from Yahoo's unofficial endpoint and can be delayed, unavailable, or from the previous market session. Settlement uses the provider quote when processing occurs, not guaranteed exact-expiry historical pricing.
+- V2 settlement rules from the original code are preserved. The supplied academic report describes a different formula; that alternative is not the current implementation.
+- The checks are functional release evidence, not a load test, penetration test, uptime guarantee or approval for real-money operation.
