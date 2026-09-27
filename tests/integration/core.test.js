@@ -267,6 +267,20 @@ test('migration preserves debited legacy balances and is repeatable', async () =
   await finishPrediction(bid.id, { userId: user._id, cancel: true })
   assert.equal((await Wallet.findOne(filter)).balancePaise, 10000000)
 })
+test('migration adds OTP uniqueness alongside a legacy non-unique email index', async () => {
+  await OTP.collection.dropIndex('otp_email_unique_v1')
+  await OTP.collection.createIndex({ email: 1 }, { name: 'email_1' })
+  await migrate()
+  const indexes = await OTP.collection.indexes()
+  assert.equal(indexes.find((i) => i.name === 'email_1').unique, undefined)
+  assert.equal(indexes.find((i) => i.name === 'otp_email_unique_v1').unique, true)
+  await requestCode({ email: 'migration@example.test' }, async () => {})
+  await assert.rejects(
+    requestCode({ email: 'migration@example.test' }, async () => {}),
+    /Wait one minute/,
+  )
+  assert.equal(await OTP.countDocuments({ email: 'migration@example.test' }), 1)
+})
 test('new bids freeze history bonuses while legacy bids preserve settlement-time history', async () => {
   const frozen = (await place()).bid
   const legacy = (await place()).bid
