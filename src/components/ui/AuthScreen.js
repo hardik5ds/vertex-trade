@@ -269,23 +269,27 @@ export default function AuthScreen({ mode }) {
                 type="submit"
                 disabled={busy || ((signup || reset) && step === 0 && retryIn > 0)}
               >
-                {busy ? (
-                  <>
-                    <span className="spinner" /> Please wait…
-                  </>
-                ) : (signup || reset) && step === 0 && retryIn > 0 ? (
-                  `Try again in ${retryIn}s`
-                ) : !signup && !reset ? (
-                  'Sign in'
-                ) : step === 0 ? (
-                  'Send verification code'
-                ) : signup && step === 1 ? (
-                  'Verify email'
-                ) : signup ? (
-                  'Create account'
-                ) : (
-                  'Update password'
-                )}
+                {busy
+                  ? !signup && !reset
+                    ? 'Signing in…'
+                    : step === 0
+                      ? 'Sending code…'
+                      : signup && step === 1
+                        ? 'Verifying…'
+                        : signup
+                          ? 'Creating account…'
+                          : 'Updating password…'
+                  : (signup || reset) && step === 0 && retryIn > 0
+                    ? `Try again in ${retryIn}s`
+                    : !signup && !reset
+                      ? 'Sign in'
+                      : step === 0
+                        ? 'Send verification code'
+                        : signup && step === 1
+                          ? 'Verify email'
+                          : signup
+                            ? 'Create account'
+                            : 'Update password'}
                 {!busy && <Icon name="arrow" size={16} />}
               </Button>
               {step === 1 && (

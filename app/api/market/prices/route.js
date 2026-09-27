@@ -18,6 +18,7 @@ export const GET = api(
       limit: Math.min(paging.limit, 24),
       search: params.get('q') || '',
       exchange: params.get('exchange') || 'ALL',
+      refresh: params.get('cached') !== '1',
     })
   },
   { public: true, limit: 60 },

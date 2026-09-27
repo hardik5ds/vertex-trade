@@ -8,6 +8,7 @@ import {
   Empty,
   Loading,
   ResourceError,
+  ResourceNotice,
   Pagination,
   Modal,
   Message,
@@ -78,13 +79,14 @@ export default function WalletPage() {
       />
       <Message success>{notice}</Message>
       {!payment && <Message>{error}</Message>}
+      <ResourceNotice resource={balances} />
       {balances.loading ? (
-        <Loading />
-      ) : balances.error ? (
+        <Loading label="Loading wallets" variant="wallet" />
+      ) : balances.error && !balances.data ? (
         <ResourceError error={balances.error} retry={balances.refresh} />
       ) : (
         <div className="wallet-grid" style={{ marginTop: 20 }}>
-          {balances.data.wallets
+          {[...balances.data.wallets]
             .sort((a, b) => (a.type === 'VIRTUAL' ? -1 : 1))
             .map((w) => (
               <section className="panel wallet-card" key={w.type}>
@@ -155,9 +157,10 @@ export default function WalletPage() {
             ))}
           </div>
         </div>
+        <ResourceNotice resource={history} />
         {history.loading ? (
-          <Loading />
-        ) : history.error ? (
+          <Loading label="Loading transactions" />
+        ) : history.error && !history.data ? (
           <ResourceError error={history.error} retry={history.refresh} />
         ) : !history.data?.transactions.length ? (
           <div className="panel">

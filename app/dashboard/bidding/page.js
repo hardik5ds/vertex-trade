@@ -9,6 +9,7 @@ import {
   Empty,
   Loading,
   ResourceError,
+  ResourceNotice,
   Pagination,
   Modal,
   Message,
@@ -86,9 +87,10 @@ export default function BiddingPage() {
         </div>
         <small>Updates every 10 seconds</small>
       </div>
+      <ResourceNotice resource={resource} />
       {resource.loading ? (
-        <Loading />
-      ) : resource.error ? (
+        <Loading label="Loading predictions" />
+      ) : resource.error && !resource.data ? (
         <ResourceError error={resource.error} retry={resource.refresh} />
       ) : !resource.data?.bids.length ? (
         <div className="panel">

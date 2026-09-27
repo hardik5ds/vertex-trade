@@ -40,6 +40,8 @@ Open http://localhost:3000. Create and verify an account. Practice credits are g
 
 `npm run seed` inserts the catalog and refreshes a bounded batch of quotes. Catalog entries start unavailable until a real provider response arrives. Visiting a market page refreshes its quotes, at most once per minute per stock across instances.
 
+Market lists display the saved database snapshot first, then update prices in the background. A short-lived, bounded browser-memory cache keeps public market cards visible when returning to the page. Old quotes are labeled as last-known data; prediction placement still validates prices on the server. Private wallet and account responses are not cached across page visits. Static card/table/chart placeholders replace spinning loaders, and a failed background refresh keeps existing data visible with a Retry notice.
+
 To run a continuously available local settlement/market worker in a second terminal:
 
 ```bash

@@ -4,7 +4,14 @@ import { useSelector } from 'react-redux'
 import useResource from '@/hooks/useResource'
 import { request, money, dateTime, walletName, refreshResources } from '@/lib/client'
 import { generatePreviewTable } from '@/lib/services/settlementFormula'
-import { Modal, Button, Loading, ResourceError, Message } from '@/components/ui/Common'
+import {
+  Modal,
+  Button,
+  Loading,
+  ResourceError,
+  ResourceNotice,
+  Message,
+} from '@/components/ui/Common'
 import { CandleChart } from '@/components/ui/Charts'
 import Icon from '@/components/ui/Icon'
 const durations = [
@@ -86,9 +93,10 @@ export default function StockDetailModal({ stock, onClose, onPlaceBid }) {
             {current.currentPrice ? money(current.currentPrice, current.currency) : '—'}
           </div>
           <p className="note">Provider quote · {dateTime(current.quoteAsOf)}</p>
+          <ResourceNotice resource={quote} />
           {quote.loading ? (
-            <Loading label="Loading price history…" />
-          ) : quote.error ? (
+            <Loading label="Loading price history" variant="chart" />
+          ) : quote.error && !quote.data ? (
             <ResourceError error={quote.error} retry={quote.refresh} />
           ) : (
             <div style={{ marginTop: 28 }}>
@@ -203,7 +211,12 @@ export default function StockDetailModal({ stock, onClose, onPlaceBid }) {
             style={{ width: '100%' }}
             type="submit"
             disabled={
-              busy || quote.loading || !terms.data || current.stale || !current.currentPrice
+              busy ||
+              quote.loading ||
+              !!quote.error ||
+              !terms.data ||
+              current.stale ||
+              !current.currentPrice
             }
           >
             {busy ? 'Placing prediction…' : 'Place prediction'} <Icon name="arrow" size={16} />

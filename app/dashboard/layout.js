@@ -9,7 +9,15 @@ import useResource from '@/hooks/useResource'
 import { request, money, dateTime, refreshResources } from '@/lib/client'
 import Brand from '@/components/ui/Brand'
 import Icon from '@/components/ui/Icon'
-import { Loading, ResourceError, Modal, Empty, Button, Message } from '@/components/ui/Common'
+import {
+  Loading,
+  ResourceError,
+  ResourceNotice,
+  Modal,
+  Empty,
+  Button,
+  Message,
+} from '@/components/ui/Common'
 const links = [
   ['Markets', '/dashboard', 'market'],
   ['Predictions', '/dashboard/bidding', 'predictions'],
@@ -80,10 +88,10 @@ export default function DashboardLayout({ children }) {
       setError(e.message)
     }
   }
-  if (me.loading) return <Loading label="Opening your workspace…" />
+  if (me.loading) return <Loading label="Opening your workspace" variant="workspace" />
   if (!me.data)
     return me.error?.status === 401 ? (
-      <Loading label="Returning to sign in…" />
+      <Loading label="Returning to sign in" variant="workspace" />
     ) : (
       <ResourceError error={me.error} retry={me.refresh} />
     )
@@ -197,15 +205,17 @@ export default function DashboardLayout({ children }) {
         </header>
         <main className="workspace">
           <Message>{error}</Message>
+          <ResourceNotice resource={me} />
           {children}
         </main>
       </div>
       {showNotifications && (
         <Modal title="Notifications" onClose={() => setShowNotifications(false)}>
           <div className="modal-content">
+            <ResourceNotice resource={notifications} />
             {notifications.loading ? (
-              <Loading />
-            ) : notifications.error ? (
+              <Loading label="Loading notifications" />
+            ) : notifications.error && !notifications.data ? (
               <ResourceError error={notifications.error} retry={notifications.refresh} />
             ) : notifications.data?.notifications.length ? (
               <>

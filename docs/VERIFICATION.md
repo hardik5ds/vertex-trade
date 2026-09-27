@@ -14,7 +14,7 @@ Private repository: https://github.com/hardik5ds/vertex-trade
 | Unit tests                  | 11 passed                    | V2 formula, precision, bounds, input validation, SMTP recipient acceptance and redacted delivery diagnostics                                                                                                 |
 | Replica-set integration     | 19 passed                    | OTP, existing-account recovery, failed delivery retry, resend cooldown, sessions, concurrent placement/cancellation/settlement, replay protection, rollback, payments, rate limiting, CSRF and migration     |
 | Production build            | Passed locally and on Vercel | Next.js 15.5.26, all 44 routes/pages compiled or generated                                                                                                                                                   |
-| Browser journeys            | 12 passed                    | Desktop/mobile signup, existing-account recovery through email and new-password login, OTP failure retry, market, predictions, payments, portfolio, admin controls, logout and network recovery             |
+| Browser journeys            | 14 passed                    | Desktop/mobile signup, account recovery, OTP retry, markets, predictions, payments, portfolio, admin, logout, slow quote loading, retained data during refresh failures and return navigation                |
 | Production dependency audit | 0 vulnerabilities reported   | `npm audit --omit=dev --audit-level=high`                                                                                                                                                                    |
 
 [CI run for the legacy migration fix](https://github.com/hardik5ds/vertex-trade/actions/runs/36298506852) passed. The workflow runs on every push to `main`; Vercel Git integration is connected and its automatic production deployment was observed.
@@ -68,6 +68,10 @@ The prior signup handler silently returned a generic success response when the e
 Registered-address signup now returns HTTP 409 with a stable `ACCOUNT_EXISTS` code and visible sign-in/password-reset links. It does not consume the per-email recovery allowance. Password reset retains conditional, identical responses for known and unknown accounts. The UI respects a 60-second resend delay and server rate-limit headers, and failed SMTP requests stay on email entry. Email input is normalized before validation.
 
 New tests cover SMTP acceptance/rejection, safe diagnostic logging, failed-delivery cleanup, recovery allowance preservation, account privacy, cooldown behavior and complete desktop/mobile password recovery using the disposable SMTP inbox. The recovery and retry journeys pass on desktop and mobile; the CI workflow runs the complete suite on push. No production password was changed by these regression tests.
+
+## Loading and refresh behavior
+
+Loading behavior is checked on both viewport sizes by delaying quote requests: static placeholders appear during the first database read, market cards become usable before external refresh completes, and a refresh failure preserves the cards with a Retry notice. Returning from Wallet to Markets reuses the public market snapshot while revalidating it. Screenshot checks cover the new placeholder layout; no rotating loader is rendered.
 
 ## Operational limits
 

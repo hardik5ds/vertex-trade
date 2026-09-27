@@ -3,7 +3,14 @@ import { useSelector } from 'react-redux'
 import useResource from '@/hooks/useResource'
 import { money, walletName } from '@/lib/client'
 import { BalanceChart } from '@/components/ui/Charts'
-import { PageHeading, Stat, Empty, Loading, ResourceError } from '@/components/ui/Common'
+import {
+  PageHeading,
+  Stat,
+  Empty,
+  Loading,
+  ResourceError,
+  ResourceNotice,
+} from '@/components/ui/Common'
 export default function PortfolioPage() {
   const wallet = useSelector((s) => s.wallet.selectedWallet),
     resource = useResource(`/api/portfolio/stats?wallet=${wallet}`, 15000),
@@ -16,9 +23,10 @@ export default function PortfolioPage() {
         title="Portfolio"
         text={`Performance and exposure in your ${walletName(wallet).toLowerCase()} wallet.`}
       />
+      <ResourceNotice resource={resource} />
       {resource.loading ? (
-        <Loading />
-      ) : resource.error ? (
+        <Loading label="Loading portfolio" variant="workspace" />
+      ) : resource.error && !resource.data ? (
         <ResourceError error={resource.error} retry={resource.refresh} />
       ) : (
         <div className="stack">

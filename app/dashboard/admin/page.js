@@ -9,6 +9,7 @@ import {
   Button,
   Loading,
   ResourceError,
+  ResourceNotice,
   Pagination,
   Modal,
   Message,
@@ -74,9 +75,10 @@ export default function AdminPage() {
         text="Keep the platform healthy. Every control action is recorded."
       />
       <Message success>{notice}</Message>
+      <ResourceNotice resource={overview} />
       {overview.loading || (!overview.data && !overview.error) ? (
-        <Loading />
-      ) : overview.error ? (
+        <Loading label="Loading platform overview" variant="stats" />
+      ) : overview.error && !overview.data ? (
         <ResourceError error={overview.error} retry={overview.refresh} />
       ) : (
         <div className="stack">
@@ -140,9 +142,10 @@ export default function AdminPage() {
         </div>
         <span className="badge">Demo payments only</span>
       </div>
+      <ResourceNotice resource={list} />
       {list.loading ? (
-        <Loading />
-      ) : list.error ? (
+        <Loading label="Loading platform records" />
+      ) : list.error && !list.data ? (
         <ResourceError error={list.error} retry={list.refresh} />
       ) : !items.length ? (
         <Empty title="No records yet" text="Platform activity will appear here." />

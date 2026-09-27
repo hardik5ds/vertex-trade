@@ -35,13 +35,68 @@ export function Empty({ title = 'Nothing here yet', text, href, action }) {
     </div>
   )
 }
-export function Loading({ label = 'Loading your workspace…' }) {
+const SkeletonLines = () => (
+  <>
+    <span className="skeleton-line skeleton-short" />
+    <span className="skeleton-line skeleton-value" />
+    <span className="skeleton-line skeleton-detail" />
+  </>
+)
+export function Loading({ label = 'Loading your workspace', variant = 'table' }) {
   return (
-    <div className="loading" role="status">
-      <span className="spinner" />
-      <span>{label}</span>
+    <div className={`loading-state loading-${variant}`} role="status" aria-label={label}>
+      <span className="sr-only">{label}</span>
+      <div aria-hidden="true">
+        {variant === 'market' ? (
+          <div className="market-grid">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div className="stock-card skeleton-card" key={i}>
+                <div className="row">
+                  <span className="skeleton-tile" />
+                  <span className="skeleton-line skeleton-short" />
+                </div>
+                <SkeletonLines />
+              </div>
+            ))}
+          </div>
+        ) : variant === 'chart' ? (
+          <div className="skeleton-chart" />
+        ) : variant === 'stats' || variant === 'wallet' || variant === 'workspace' ? (
+          <>
+            <div className={variant === 'wallet' ? 'wallet-grid' : 'stats'}>
+              {Array.from({ length: variant === 'wallet' ? 2 : 4 }, (_, i) => (
+                <div className="panel skeleton-card" key={i}>
+                  <SkeletonLines />
+                </div>
+              ))}
+            </div>
+            {variant === 'workspace' && <div className="skeleton-chart" />}
+          </>
+        ) : (
+          <div className="panel skeleton-table">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div className="skeleton-row" key={i}>
+                <span className="skeleton-line" />
+                <span className="skeleton-line" />
+                <span className="skeleton-line" />
+                <span className="skeleton-line" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
+}
+export function ResourceNotice({ resource }) {
+  return resource.error && resource.data ? (
+    <div className="refresh-notice" role="status">
+      <span>Couldn’t refresh. Showing the last update.</span>
+      <button className="table-action" onClick={resource.refresh} disabled={resource.refreshing}>
+        {resource.refreshing ? 'Retrying…' : 'Retry'}
+      </button>
+    </div>
+  ) : null
 }
 export function ResourceError({ error, retry }) {
   return (

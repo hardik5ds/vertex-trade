@@ -9,6 +9,7 @@ import {
   Button,
   Loading,
   ResourceError,
+  ResourceNotice,
   Empty,
   Pagination,
   Message,
@@ -32,10 +33,11 @@ export default function DashboardPage() {
     }, 350)
     return () => clearTimeout(t)
   }, [search])
-  const market = useResource(
-      `/api/market/prices?limit=24&page=${page}&exchange=${exchange}&q=${encodeURIComponent(query)}`,
-      60000,
-    ),
+  const marketUrl = `/api/market/prices?limit=24&page=${page}&exchange=${exchange}&q=${encodeURIComponent(query)}`
+  const market = useResource(marketUrl, 60000, {
+      cache: true,
+      initialUrl: `${marketUrl}&cached=1`,
+    }),
     stats = useResource(`/api/portfolio/stats?wallet=${selected}`, 15000)
   const summary = stats.data?.summary
   return (
@@ -78,9 +80,9 @@ export default function DashboardPage() {
       <div style={{ marginTop: 34 }}>
         <div className="row spread">
           <h2>Explore markets</h2>
-          <Button secondary onClick={market.refresh} disabled={market.loading}>
+          <Button secondary onClick={market.refresh} disabled={market.refreshing}>
             <Icon name="refresh" size={15} />
-            Refresh
+            {market.refreshing ? 'Updating…' : 'Refresh'}
           </Button>
         </div>
         <div className="toolbar">
@@ -117,9 +119,10 @@ export default function DashboardPage() {
           </span>
           <span>Refreshes every minute while this page is open</span>
         </div>
+        <ResourceNotice resource={market} />
         {market.loading ? (
-          <Loading label="Fetching market quotes…" />
-        ) : market.error ? (
+          <Loading label="Loading markets" variant="market" />
+        ) : market.error && !market.data ? (
           <ResourceError error={market.error} retry={market.refresh} />
         ) : !market.data?.stocks.length ? (
           <Empty

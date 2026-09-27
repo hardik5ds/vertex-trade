@@ -221,3 +221,84 @@ test('failed OTP request stays on email entry and supports retry', async ({ page
     page.getByRole('alert').filter({ hasText: 'Email could not be delivered' }),
   ).not.toBeVisible()
 })
+test('markets stay visible during slow quotes, refresh failures and return navigation', async ({
+  page,
+}, info) => {
+  const login = await page.request.post('/api/auth/login', {
+    headers: { Origin: 'http://localhost:3100' },
+    data: { email: 'admin@example.test', password: 'admin-test-password' },
+  })
+  expect(login.ok()).toBeTruthy()
+  let releaseSnapshot,
+    releaseQuotes,
+    offline = false,
+    snapshots = 0
+  const snapshotGate = new Promise((resolve) => {
+    releaseSnapshot = resolve
+  })
+  let quotesGate = new Promise((resolve) => {
+    releaseQuotes = resolve
+  })
+  await page.route('**/api/market/prices?**', async (route) => {
+    if (new URL(route.request().url()).searchParams.get('cached') === '1') {
+      snapshots++
+      await snapshotGate
+    } else {
+      await quotesGate
+      if (offline) return route.abort()
+    }
+    await route.continue()
+  })
+  try {
+    await page.goto('/dashboard')
+    await expect(page.getByRole('status', { name: 'Loading markets', exact: true })).toBeVisible()
+    expect(await page.locator('.spinner').count()).toBe(0)
+    await page.screenshot({
+      path: `docs/screenshots/market-placeholder-${info.project.name}.png`,
+      fullPage: true,
+    })
+    releaseSnapshot()
+    const cards = page.getByRole('button', { name: /View .+ and make a prediction/ })
+    await expect(cards.first()).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Updating…', exact: true })).toBeDisabled()
+    await expect(
+      page.getByRole('status', { name: 'Loading markets', exact: true }),
+    ).not.toBeVisible()
+    releaseQuotes()
+    await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeEnabled()
+    offline = true
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+    await expect(page.getByText('Couldn’t refresh. Showing the last update.')).toBeVisible()
+    await expect(cards.first()).toBeVisible()
+    offline = false
+    await page.getByRole('button', { name: 'Retry', exact: true }).click()
+    await expect(page.getByText('Couldn’t refresh. Showing the last update.')).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeEnabled()
+    if (info.project.name === 'mobile')
+      await page.getByRole('button', { name: 'Open navigation' }).click()
+    await page.getByRole('link', { name: 'Wallet', exact: true }).click()
+    await expect(page).toHaveURL('/dashboard/wallet')
+    await expect(page.getByRole('button', { name: 'Demo deposit', exact: true })).toBeVisible()
+    const previousSnapshots = snapshots
+    quotesGate = new Promise((resolve) => {
+      releaseQuotes = resolve
+    })
+    if (info.project.name === 'mobile')
+      await page.getByRole('button', { name: 'Open navigation' }).click()
+    await page.getByRole('link', { name: 'Markets', exact: true }).click()
+    await expect(page).toHaveURL('/dashboard')
+    await expect(cards.first()).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Updating…', exact: true })).toBeDisabled()
+    expect(snapshots).toBe(previousSnapshots)
+    await expect(
+      page.getByRole('status', { name: 'Loading markets', exact: true }),
+    ).not.toBeVisible()
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBeTruthy()
+  } finally {
+    releaseSnapshot()
+    releaseQuotes()
+    await page.unrouteAll({ behavior: 'wait' })
+  }
+})
